@@ -21,10 +21,15 @@ const useStyles = makeStyles(() => ({
   label: {
     userSelect: 'none',
   },
+  treeItem: {
+    marginLeft: (props) => props.level * 20, // Indentação baseada no nível
+  },
 }));
-const CustomTreeItem = ({ nodeId, label, children, classes }) => {
+const CustomTreeItem = ({ nodeId, label, children, classes, level }) => {
+  const props = { level };
+  const customClasses = useStyles(props);
   return (
-    <div className={classes.root}>
+    <div className={customClasses.treeItem}>
       <div className={classes.content}>
         <div className={classes.label}>{label}</div>
       </div>
@@ -32,12 +37,7 @@ const CustomTreeItem = ({ nodeId, label, children, classes }) => {
     </div>
   );
 };
-const TreeItem = ({
-  items,
-  selected,
-  onSelect,
-  disableMultiParentSelection,
-}) => {
+const TreeItem = ({ items, selected, onSelect }) => {
   const classes = useStyles();
   const tree = React.useMemo(() => flattenTree({ items }), [items]);
   const marksUncheckedRef = React.useRef(
@@ -155,33 +155,15 @@ const TreeItem = ({
         });
       newSelect = newSelect.filter((select) => select !== value);
     }
-    if (disableMultiParentSelection) {
-      if (checked) {
-        activeParentRef.current = parents.length > 0 ? parents[0] : value;
-      } else {
-        const childNodes = getTreeNodes({
-          tree,
-          node: parents.length > 0 ? parents[0] : value,
-        });
-        if (!childNodes.some((childNode) => newSelect.includes(childNode))) {
-          activeParentRef.current = '';
-        }
-      }
-    }
     onSelect(newSelect);
   };
+
   const renderTreeItem = ({ nodes, parents = [], level = 0 }) => {
     return nodes.map((node) => {
       const { id: value, label, children } = node;
       const checked =
         selected.includes(value) ||
         parents.some((parent) => selected.includes(parent));
-      let disabled = activeParentRef.current
-        ? !parents.includes(activeParentRef.current)
-        : false;
-      if (activeParentRef.current === value) {
-        disabled = false;
-      }
       if (children && children.length > 0) {
         const indeterminate = isIndeterminate({ tree, selected, node: value });
         const treeItemLabel = createTreeItemLabel({
@@ -190,7 +172,6 @@ const TreeItem = ({
             value,
             checked,
             indeterminate,
-            disabled,
             onChange: (event) => {
               handleChange({ event, parents });
             },
@@ -202,6 +183,7 @@ const TreeItem = ({
             nodeId={value}
             label={treeItemLabel}
             classes={classes}
+            level={level}
           >
             {renderTreeItem({
               nodes: children,
@@ -216,7 +198,6 @@ const TreeItem = ({
         checkboxProps: {
           value,
           checked,
-          disabled,
           onChange: (event) => {
             handleChange({ event, parents });
           },
@@ -228,6 +209,7 @@ const TreeItem = ({
           nodeId={value}
           label={treeItemLabel}
           classes={classes}
+          level={level}
         />
       );
     });
@@ -235,7 +217,6 @@ const TreeItem = ({
   return renderTreeItem({ nodes: items });
 };
 export default TreeItem;
-
 function flattenTree({ items, parent = 'root', depth = 0 }) {
   return items.reduce((prev, curr) => {
     Object.assign(prev, { [parent]: [...(prev[parent] || []), curr.id] });
