@@ -37,69 +37,88 @@ const CustomTreeItem = ({ nodeId, label, children, classes, level }) => {
     </div>
   );
 };
+
+const removeNodes = (nodesList, nodesToBeRemoved) =>
+  nodesList.filter((select) => !nodesToBeRemoved.includes(select));
+
 const TreeItem = ({ items, selected, onSelect }) => {
   const classes = useStyles();
   const tree = React.useMemo(() => flattenTree({ items }), [items]);
   const marksUncheckedRef = React.useRef(
     createMarksUnchecked({ tree, items, selected }),
   );
-  const activeParentRef = React.useRef('');
   React.useEffect(() => {
     // marksUncheckedRef.current = createMarksUnchecked({ tree, items, selected });
   }, [items, selected, tree]);
+
+  // console.log({ marksUncheckedRef });
+
   const handleChange = ({ event, parents = [] }) => {
     const {
       target: { value, checked },
     } = event;
+    // console.log({ value, checked, parents });
     let newSelect = selected.slice();
     if (checked) {
-      newSelect = [...parents, value].reverse().reduce(
-        (prev, curr, index) => {
-          const node = curr;
-          let newSelectSoFar = prev;
-          if (index === 0) {
-            const childNodes = getTreeNodes({ tree, node });
-            const childNodesLength = childNodes.length;
-            if (childNodesLength > 0) {
-              newSelectSoFar = [
-                ...newSelectSoFar.filter(
-                  (select) => !childNodes.includes(select),
-                ),
-              ];
-              marksUncheckedRef.current = marksUncheckedRef.current.filter(
-                (marksUnchecked) =>
-                  ![...childNodes, node].includes(marksUnchecked),
-              );
-            }
-          } else {
-            const childNodes = getTreeNodes({ tree, node });
-            const childNodesLength = childNodes.length;
-            if (childNodesLength > 0) {
-              const isEveryChildrenExist = childNodes.every((childNode) =>
-                newSelectSoFar.includes(childNode),
-              );
-              if (isEveryChildrenExist) {
-                newSelectSoFar = [
-                  ...newSelectSoFar.filter(
-                    (select) => !childNodes.includes(select),
-                  ),
-                  node,
-                ];
-                marksUncheckedRef.current = marksUncheckedRef.current.filter(
-                  (marksUnchecked) =>
-                    ![...childNodes, node].includes(marksUnchecked),
-                );
-              }
-            }
-          }
-          marksUncheckedRef.current = marksUncheckedRef.current.filter(
-            (marksUnchecked) => !newSelectSoFar.includes(marksUnchecked),
-          );
-          return newSelectSoFar;
-        },
-        [...newSelect, value],
+      newSelect = handleChecked({ value, parents, newSelect });
+    } else {
+      newSelect = handleUnchecked({ value, parents, newSelect });
+    }
+    // console.log({ newSelect });
+    onSelect(newSelect);
+  };
+  const handleChecked = ({ value, parents, newSelect }) => {
+    return [...parents, value].reverse().reduce(
+      (prev, curr, index) => {
+        const node = curr;
+        // console.log({ prev, curr, index });
+        let newSelectTemp = prev;
+        if (index === 0) {
+          newSelectTemp = handleFirstLevelChecked({ node, newSelectTemp });
+        } else {
+          newSelectTemp = handleOtherLevelsChecked({ node, newSelectTemp });
+        }
+
+        marksUncheckedRef.current = removeNodes(
+          marksUncheckedRef.current,
+          newSelectTemp,
+        );
+
+        return newSelectTemp;
+      },
+      [...newSelect, value],
+    );
+  };
+
+  const handleFirstLevelChecked = ({ node, newSelectTemp }) => {
+    const childNodes = getTreeNodes({ tree, node });
+
+    if (childNodes.length > 0) {
+      newSelectTemp = removeNodes([...newSelectTemp], childNodes);
+    }
+    return newSelectTemp;
+  };
+
+  const handleOtherLevelsChecked = ({ node, newSelectTemp }) => {
+    const immediateChildNodes = tree[node];
+
+    if (immediateChildNodes.length > 0) {
+      const isEveryChildrenSelected = immediateChildNodes.every((childNode) =>
+        newSelectTemp.includes(childNode),
       );
-    } else if (!checked && !newSelect.includes(value)) {
+
+      if (isEveryChildrenSelected) {
+        newSelectTemp = removeNodes(
+          [...newSelectTemp, node],
+          immediateChildNodes,
+        );
+      }
+    }
+    return newSelectTemp;
+  };
+
+  const handleUnchecked = ({ value, parents, newSelect }) => {
+    if (!newSelect.includes(value)) {
       let toExclude = value;
       newSelect = parents
         .slice()
@@ -107,23 +126,23 @@ const TreeItem = ({ items, selected, onSelect }) => {
         .reduce(
           (prev, curr, index) => {
             const node = curr;
-            let newSelectSoFar = prev;
+            let newSelectTemp = prev;
             let childNodes;
             marksUncheckedRef.current = [
               ...new Set([...marksUncheckedRef.current, toExclude]),
             ];
             if (index === 0) {
               childNodes = getTreeNodes({ tree, node, depth: 1 });
-              newSelectSoFar = [
-                ...newSelectSoFar,
+              newSelectTemp = [
+                ...newSelectTemp,
                 ...childNodes.filter((childNode) => childNode !== toExclude),
               ];
             } else {
               childNodes = getTreeNodes({ tree, node, depth: 1 }).filter(
                 (childNode) => childNode !== toExclude,
               );
-              newSelectSoFar = [
-                ...newSelectSoFar.filter(
+              newSelectTemp = [
+                ...newSelectTemp.filter(
                   (select) => !childNodes.includes(select),
                 ),
                 ...childNodes.filter(
@@ -132,10 +151,11 @@ const TreeItem = ({ items, selected, onSelect }) => {
               ];
             }
             toExclude = curr;
-            return newSelectSoFar;
+            return newSelectTemp;
           },
           newSelect.filter((select) => !parents.includes(select)),
         );
+      // console.log('139', { newSelect });
     } else {
       [...parents, value]
         .slice()
@@ -153,9 +173,10 @@ const TreeItem = ({ items, selected, onSelect }) => {
             ];
           }
         });
+      // console.log({ marksUncheckedRef: marksUncheckedRef.current, newSelect });
       newSelect = newSelect.filter((select) => select !== value);
     }
-    onSelect(newSelect);
+    return newSelect;
   };
 
   const renderTreeItem = ({ nodes, parents = [], level = 0 }) => {
@@ -217,6 +238,7 @@ const TreeItem = ({ items, selected, onSelect }) => {
   return renderTreeItem({ nodes: items });
 };
 export default TreeItem;
+
 function flattenTree({ items, parent = 'root', depth = 0 }) {
   return items.reduce((prev, curr) => {
     Object.assign(prev, { [parent]: [...(prev[parent] || []), curr.id] });
@@ -253,6 +275,7 @@ function createTreeItemLabel({
     />
   );
 }
+
 function getTreeNodes({ tree, node = 'root', depth, currentDepth = 1 }) {
   const branches = tree[node];
   if (!branches) {
