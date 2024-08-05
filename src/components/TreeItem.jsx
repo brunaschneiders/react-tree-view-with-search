@@ -44,45 +44,37 @@ const removeNodes = (nodesList, nodesToBeRemoved) =>
 const TreeItem = ({ items, selected, onSelect }) => {
   const classes = useStyles();
   const tree = React.useMemo(() => flattenTree({ items }), [items]);
-  const marksUncheckedRef = React.useRef(
-    createMarksUnchecked({ tree, items, selected }),
-  );
-  React.useEffect(() => {
-    // marksUncheckedRef.current = createMarksUnchecked({ tree, items, selected });
-  }, [items, selected, tree]);
-
-  // console.log({ marksUncheckedRef });
 
   const handleChange = ({ event, parents = [] }) => {
     const {
       target: { value, checked },
     } = event;
-    // console.log({ value, checked, parents });
     let newSelect = selected.slice();
+
     if (checked) {
       newSelect = handleChecked({ value, parents, newSelect });
     } else {
-      newSelect = handleUnchecked({ value, parents, newSelect });
+      newSelect = handleUnchecked({
+        nodeToBeRemoved: value,
+        parents,
+        newSelect,
+      });
     }
-    // console.log({ newSelect });
+
     onSelect(newSelect);
   };
+
   const handleChecked = ({ value, parents, newSelect }) => {
     return [...parents, value].reverse().reduce(
       (prev, curr, index) => {
         const node = curr;
-        // console.log({ prev, curr, index });
         let newSelectTemp = prev;
+
         if (index === 0) {
           newSelectTemp = handleFirstLevelChecked({ node, newSelectTemp });
         } else {
           newSelectTemp = handleOtherLevelsChecked({ node, newSelectTemp });
         }
-
-        marksUncheckedRef.current = removeNodes(
-          marksUncheckedRef.current,
-          newSelectTemp,
-        );
 
         return newSelectTemp;
       },
@@ -100,7 +92,7 @@ const TreeItem = ({ items, selected, onSelect }) => {
   };
 
   const handleOtherLevelsChecked = ({ node, newSelectTemp }) => {
-    const immediateChildNodes = tree[node];
+    const immediateChildNodes = getTreeNodes({ tree, node, depth: 1 });
 
     if (immediateChildNodes.length > 0) {
       const isEveryChildrenSelected = immediateChildNodes.every((childNode) =>
@@ -117,66 +109,35 @@ const TreeItem = ({ items, selected, onSelect }) => {
     return newSelectTemp;
   };
 
-  const handleUnchecked = ({ value, parents, newSelect }) => {
-    if (!newSelect.includes(value)) {
-      let toExclude = value;
-      newSelect = parents
-        .slice()
-        .reverse()
-        .reduce(
-          (prev, curr, index) => {
-            const node = curr;
-            let newSelectTemp = prev;
-            let childNodes;
-            marksUncheckedRef.current = [
-              ...new Set([...marksUncheckedRef.current, toExclude]),
-            ];
-            if (index === 0) {
-              childNodes = getTreeNodes({ tree, node, depth: 1 });
-              newSelectTemp = [
-                ...newSelectTemp,
-                ...childNodes.filter((childNode) => childNode !== toExclude),
-              ];
-            } else {
-              childNodes = getTreeNodes({ tree, node, depth: 1 }).filter(
-                (childNode) => childNode !== toExclude,
-              );
-              newSelectTemp = [
-                ...newSelectTemp.filter(
-                  (select) => !childNodes.includes(select),
-                ),
-                ...childNodes.filter(
-                  (childNode) => !marksUncheckedRef.current.includes(childNode),
-                ),
-              ];
-            }
-            toExclude = curr;
-            return newSelectTemp;
-          },
-          newSelect.filter((select) => !parents.includes(select)),
-        );
-      // console.log('139', { newSelect });
+  const handleUnchecked = ({ nodeToBeRemoved, parents, newSelect }) => {
+    let updatedSelect = newSelect.slice(); // Cria uma cópia do array de selecionados
+
+    if (updatedSelect.includes(nodeToBeRemoved)) {
+      updatedSelect = removeNodes([...updatedSelect], [nodeToBeRemoved]);
     } else {
-      [...parents, value]
-        .slice()
-        .reverse()
-        .forEach((item) => {
-          const node = item;
-          const childNodes = getTreeNodes({ tree, node, depth: 1 });
-          if (childNodes.length > 0) {
-            marksUncheckedRef.current = [
-              ...new Set([...marksUncheckedRef.current, ...childNodes]),
-            ];
-          } else {
-            marksUncheckedRef.current = [
-              ...new Set([...marksUncheckedRef.current, node]),
-            ];
-          }
-        });
-      // console.log({ marksUncheckedRef: marksUncheckedRef.current, newSelect });
-      newSelect = newSelect.filter((select) => select !== value);
+      const parentNodeSelected = parents.find((parentNode) =>
+        updatedSelect.includes(parentNode),
+      );
+      const treeToBeRemoved = [...parents, nodeToBeRemoved];
+
+      updatedSelect = removeNodes([...updatedSelect], [parentNodeSelected]);
+
+      const nodesFromSelectedParent = parents.slice(
+        parents.indexOf(parentNodeSelected),
+      );
+
+      nodesFromSelectedParent.forEach((parentNode) => {
+        const childNodes = getTreeNodes({ tree, node: parentNode, depth: 1 });
+
+        const nodesToBeIncluded = removeNodes(childNodes, treeToBeRemoved);
+
+        updatedSelect.push(...nodesToBeIncluded);
+      });
+
+      console.log({ parents, treeToBeRemoved, nodesFromSelectedParent });
     }
-    return newSelect;
+
+    return updatedSelect;
   };
 
   const renderTreeItem = ({ nodes, parents = [], level = 0 }) => {
