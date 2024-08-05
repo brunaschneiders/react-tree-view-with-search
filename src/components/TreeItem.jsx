@@ -179,7 +179,6 @@ const TreeItem = ({ items, selected, onSelect }) => {
       });
 
       const customTreeItemProps = {
-        key: value,
         nodeId: value,
         label: treeItemLabel,
         classes: classes,
@@ -188,7 +187,7 @@ const TreeItem = ({ items, selected, onSelect }) => {
 
       if (children && children.length > 0) {
         return (
-          <CustomTreeItem {...customTreeItemProps}>
+          <CustomTreeItem key={value} {...customTreeItemProps}>
             {renderTreeItem({
               nodes: children,
               parents: [...parents, value],
@@ -198,7 +197,7 @@ const TreeItem = ({ items, selected, onSelect }) => {
         );
       }
 
-      return <CustomTreeItem {...customTreeItemProps} />;
+      return <CustomTreeItem key={value} {...customTreeItemProps} />;
     });
   };
 
