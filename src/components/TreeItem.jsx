@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import Checkbox from '@material-ui/core/Checkbox';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
+import { IconButton } from '@material-ui/core';
+import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
+import ChevronRightIcon from '@material-ui/icons/ChevronRight';
 
 const useStyles = makeStyles(() => ({
   root: {
@@ -20,20 +23,36 @@ const useStyles = makeStyles(() => ({
   selected: {},
   label: {
     userSelect: 'none',
+    display: 'inline-flex',
+    alignItems: 'center',
   },
   treeItem: {
-    marginLeft: (props) => props.level * 20, // Indentação baseada no nível
+    marginLeft: (props) => props.level * 20,
   },
 }));
+
 const CustomTreeItem = ({ nodeId, label, children, classes, level }) => {
+  const [expanded, setExpanded] = useState(false);
   const props = { level };
   const customClasses = useStyles(props);
+
+  const handleToggle = () => {
+    setExpanded(!expanded);
+  };
+
   return (
     <div className={customClasses.treeItem}>
       <div className={classes.content}>
-        <div className={classes.label}>{label}</div>
+        <div className={classes.label}>
+          {label} {children?.length ? `(${children.length})` : null}
+          {!!children ? (
+            <IconButton size="small" onClick={handleToggle}>
+              {expanded ? <ExpandMoreIcon /> : <ChevronRightIcon />}
+            </IconButton>
+          ) : null}
+        </div>
       </div>
-      {children && <div>{children}</div>}
+      {expanded && children && <div>{children}</div>}
     </div>
   );
 };
@@ -145,27 +164,31 @@ const TreeItem = ({ items, selected, onSelect }) => {
       const checked =
         selected.includes(value) ||
         parents.some((parent) => selected.includes(parent));
-      if (children && children.length > 0) {
-        const indeterminate = isIndeterminate({ tree, selected, node: value });
-        const treeItemLabel = createTreeItemLabel({
-          formControlLabelProps: { label },
-          checkboxProps: {
-            value,
-            checked,
-            indeterminate,
-            onChange: (event) => {
-              handleChange({ event, parents });
-            },
+
+      const indeterminate = isIndeterminate({ tree, selected, node: value });
+      const treeItemLabel = createTreeItemLabel({
+        formControlLabelProps: { label },
+        checkboxProps: {
+          value,
+          checked,
+          indeterminate,
+          onChange: (event) => {
+            handleChange({ event, parents });
           },
-        });
+        },
+      });
+
+      const customTreeItemProps = {
+        key: value,
+        nodeId: value,
+        label: treeItemLabel,
+        classes: classes,
+        level: level,
+      };
+
+      if (children && children.length > 0) {
         return (
-          <CustomTreeItem
-            key={value}
-            nodeId={value}
-            label={treeItemLabel}
-            classes={classes}
-            level={level}
-          >
+          <CustomTreeItem {...customTreeItemProps}>
             {renderTreeItem({
               nodes: children,
               parents: [...parents, value],
@@ -174,27 +197,11 @@ const TreeItem = ({ items, selected, onSelect }) => {
           </CustomTreeItem>
         );
       }
-      const treeItemLabel = createTreeItemLabel({
-        formControlLabelProps: { label },
-        checkboxProps: {
-          value,
-          checked,
-          onChange: (event) => {
-            handleChange({ event, parents });
-          },
-        },
-      });
-      return (
-        <CustomTreeItem
-          key={value}
-          nodeId={value}
-          label={treeItemLabel}
-          classes={classes}
-          level={level}
-        />
-      );
+
+      return <CustomTreeItem {...customTreeItemProps} />;
     });
   };
+
   return renderTreeItem({ nodes: items });
 };
 export default TreeItem;
@@ -215,11 +222,7 @@ function flattenTree({ items, parent = 'root', depth = 0 }) {
     return prev;
   }, {});
 }
-function createMarksUnchecked({ tree, items, selected }) {
-  return items.reduce((prev, { id: node }) => {
-    return [...prev, node, ...getTreeNodes({ tree, node })];
-  }, []);
-}
+
 function createTreeItemLabel({
   formControlLabelProps = {},
   checkboxProps = {},
@@ -257,6 +260,7 @@ function getTreeNodes({ tree, node = 'root', depth, currentDepth = 1 }) {
     return newPrev;
   }, []);
 }
+
 function isIndeterminate({ tree, node: value, selected }) {
   return getTreeNodes({ tree, node: value }).some((node) =>
     selected.includes(node),
