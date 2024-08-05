@@ -2,7 +2,7 @@ import React from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import Checkbox from '@material-ui/core/Checkbox';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
-import createTreeNode from './createTreeNode';
+
 const useStyles = makeStyles(() => ({
   root: {
     [[
@@ -110,15 +110,16 @@ const TreeItem = ({ items, selected, onSelect }) => {
   };
 
   const handleUnchecked = ({ nodeToBeRemoved, parents, newSelect }) => {
-    let updatedSelect = newSelect.slice(); // Cria uma cópia do array de selecionados
+    let updatedSelect = [...newSelect];
 
     if (updatedSelect.includes(nodeToBeRemoved)) {
       updatedSelect = removeNodes([...updatedSelect], [nodeToBeRemoved]);
     } else {
+      const treeToBeRemoved = [...parents, nodeToBeRemoved];
+
       const parentNodeSelected = parents.find((parentNode) =>
         updatedSelect.includes(parentNode),
       );
-      const treeToBeRemoved = [...parents, nodeToBeRemoved];
 
       updatedSelect = removeNodes([...updatedSelect], [parentNodeSelected]);
 
@@ -133,8 +134,6 @@ const TreeItem = ({ items, selected, onSelect }) => {
 
         updatedSelect.push(...nodesToBeIncluded);
       });
-
-      console.log({ parents, treeToBeRemoved, nodesFromSelectedParent });
     }
 
     return updatedSelect;
