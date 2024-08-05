@@ -104,6 +104,9 @@ export default App;
 ## :movie_camera: Demo
 
 Check out the demo video below to see the tree checkbox functionality in action:
+![Screenshot 2024-08-05 at 11 54 50](https://github.com/user-attachments/assets/bc8d5b30-124c-4d56-8015-99e75542da0c)
+
+
 
 ## :mag: Future Enhancements
 
